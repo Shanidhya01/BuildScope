@@ -1,0 +1,23 @@
+{
+  "name": "buildscope",
+  "version": "1.0.0",
+  "description": "BuildScope converts plain-English software ideas into complete, structured project blueprints—covering features, architecture, database schema, APIs, and development timelines.",
+  "homepage": "https://github.com/Shanidhya01/BuildScope#readme",
+  "bugs": {
+    "url": "https://github.com/Shanidhya01/BuildScope/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shanidhya01/BuildScope.git"
+  },
+  "license": "ISC",
+  "author": "Shanidhya Kumar",
+  "type": "commonjs",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
