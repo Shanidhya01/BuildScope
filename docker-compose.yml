@@ -28,6 +28,8 @@ services:
 
   projects:
     build: ./services/project-service
+    env_file:
+      - .env
     environment:
       - PORT=4003
 

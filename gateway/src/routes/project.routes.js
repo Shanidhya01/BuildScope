@@ -4,7 +4,5 @@ const services = require("../utils/proxy");
 module.exports = createProxyMiddleware({
   target: services.projects,
   changeOrigin: true,
-  pathRewrite: {
-    "^/projects": ""
-  }
+  pathRewrite: (path) => `/projects${path}`
 });

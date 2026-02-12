@@ -19,7 +19,7 @@ app.get("/health", (req, res) => {
 
 // Proxy routes
 app.use("/auth", authRoutes);
-app.use("/ai", verifyAuth, aiRoutes);
+app.use("/ai",verifyAuth, aiRoutes);
 app.use("/projects", verifyAuth, projectRoutes);
 app.use("/export", verifyAuth, exportRoutes);
 
