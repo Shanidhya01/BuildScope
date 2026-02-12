@@ -3,6 +3,7 @@ const authRoutes = require("./routes/auth.routes");
 const aiRoutes = require("./routes/ai.routes");
 const projectRoutes = require("./routes/project.routes");
 const exportRoutes = require("./routes/export.routes");
+const verifyAuth = require("./middlewares/auth.middleware");
 
 const app = express();
 app.use(express.json());
@@ -22,8 +23,8 @@ app.get("/health", (req, res) => {
 
 // Proxy routes
 app.use("/auth", authRoutes);
-app.use("/ai", aiRoutes);
-app.use("/projects", projectRoutes);
-app.use("/export", exportRoutes);
+app.use("/ai", verifyAuth, aiRoutes);
+app.use("/projects", verifyAuth, projectRoutes);
+app.use("/export", verifyAuth, exportRoutes);
 
 module.exports = app;
