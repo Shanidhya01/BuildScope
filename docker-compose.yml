@@ -20,8 +20,11 @@ services:
 
   ai:
     build: ./services/ai-service
+    env_file:
+      - .env
     environment:
       - PORT=4002
+
 
   projects:
     build: ./services/project-service

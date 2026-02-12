@@ -4,7 +4,8 @@ const services = require("../utils/proxy");
 module.exports = createProxyMiddleware({
   target: services.ai,
   changeOrigin: true,
-  pathRewrite: {
-    "^/ai": ""
-  }
+  pathRewrite: (path) => `/ai${path}`,
+  proxyTimeout: 60000,
+  timeout: 60000,
+  selfHandleResponse: false
 });

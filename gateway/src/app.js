@@ -6,19 +6,15 @@ const exportRoutes = require("./routes/export.routes");
 const verifyAuth = require("./middlewares/auth.middleware");
 
 const app = express();
-app.use(express.json());
-
 
 //health check endpoint
-
 app.get("/health", (req, res) => {
-  res.json({
+  res.status(200).json({
     service: "gateway",
     status: "OK"
   });
-  res.send("Gateway is Working");
-  res.status(200);
 });
+
 
 
 // Proxy routes
