@@ -6,5 +6,12 @@ module.exports = createProxyMiddleware({
   changeOrigin: true,
   pathRewrite: {
     "^/export": ""
+  },
+  on: {
+    proxyReq: (proxyReq, req) => {
+      if (req.user?.uid) {
+        proxyReq.setHeader("x-user-id", req.user.uid);
+      }
+    }
   }
 });
