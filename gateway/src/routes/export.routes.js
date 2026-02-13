@@ -1,4 +1,4 @@
-const { createProxyMiddleware } = require("http-proxy-middleware");
+const { createProxyMiddleware, fixRequestBody } = require("http-proxy-middleware");
 const services = require("../utils/proxy");
 
 module.exports = createProxyMiddleware({
@@ -8,7 +8,8 @@ module.exports = createProxyMiddleware({
     "^/export": ""
   },
   on: {
-    proxyReq: (proxyReq, req) => {
+    proxyReq: (proxyReq, req, res) => {
+      fixRequestBody(proxyReq, req, res);
       if (req.user?.uid) {
         proxyReq.setHeader("x-user-id", req.user.uid);
       }

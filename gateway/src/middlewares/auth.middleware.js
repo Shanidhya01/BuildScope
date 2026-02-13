@@ -1,28 +1,28 @@
-const axios = require("axios");
+const admin = require("../config/firebase");
 
 const verifyAuth = async (req, res, next) => {
-  const token = req.headers.authorization;
-
-  if (!token) {
-    if (process.env.NODE_ENV !== "production") {
-      req.user = { uid: "dev-user" };
-      return next();
-    }
-
-    return res.status(401).json({ message: "No token" });
+  if (process.env.SKIP_FIREBASE_AUTH === "true") {
+    req.user = { uid: "dev-user" };
+    return next();
   }
 
   try {
-    const response = await axios.post(
-      "http://auth:4001/auth/verify",
-      {},
-      { headers: { Authorization: token } }
-    );
+    const authHeader = req.headers.authorization;
 
-    req.user = response.data.user || { uid: "dev-user" };
+    if (!authHeader) {
+      return res.status(401).json({ message: "No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+
+    req.user = decodedToken;
+
     next();
-  } catch (err) {
-    res.status(401).json({ message: "Unauthorized" });
+
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid token" });
   }
 };
 

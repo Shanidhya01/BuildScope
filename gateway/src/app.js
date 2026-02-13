@@ -1,4 +1,5 @@
 const express = require("express");
+const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
 const aiRoutes = require("./routes/ai.routes");
 const projectRoutes = require("./routes/project.routes");
@@ -6,6 +7,13 @@ const exportRoutes = require("./routes/export.routes");
 const verifyAuth = require("./middlewares/auth.middleware");
 
 const app = express();
+
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    credentials: true
+  })
+);
 
 //health check endpoint
 app.get("/health", (req, res) => {
@@ -19,7 +27,7 @@ app.get("/health", (req, res) => {
 
 // Proxy routes
 app.use("/auth", authRoutes);
-app.use("/ai", aiRoutes);
+app.use("/ai", verifyAuth, aiRoutes);
 app.use("/projects", verifyAuth, projectRoutes);
 app.use("/export", verifyAuth, exportRoutes);
 

@@ -2,6 +2,24 @@ const { buildPrompt } = require("./promptBuilder.service");
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+const extractJsonPayload = (rawText) => {
+  const cleaned = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const jsonCandidate = cleaned.slice(firstBrace, lastBrace + 1);
+      return JSON.parse(jsonCandidate);
+    }
+
+    throw new Error("Model returned non-JSON output");
+  }
+};
+
 const generateBlueprint = async (idea) => {
   try {
     console.log("🟢 Starting OpenRouter call...");
@@ -39,16 +57,19 @@ const generateBlueprint = async (idea) => {
 
     let text = data?.choices?.[0]?.message?.content || "";
 
+    if (Array.isArray(text)) {
+      text = text
+        .map((chunk) => (typeof chunk === "string" ? chunk : chunk?.text || ""))
+        .join("\n");
+    }
+
     if (!text) {
       throw new Error("Empty response from OpenRouter");
     }
 
-    // Remove markdown formatting
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
     console.log("🟢 Parsing blueprint JSON");
 
-    const parsed = JSON.parse(text);
+    const parsed = extractJsonPayload(text);
 
     console.log("🟢 Blueprint generated successfully");
 
@@ -56,7 +77,7 @@ const generateBlueprint = async (idea) => {
 
   } catch (error) {
     console.error("🔴 AI Generation Failed:", error.message);
-    throw error;
+    throw new Error(error.message || "AI generation failed");
   }
 };
 

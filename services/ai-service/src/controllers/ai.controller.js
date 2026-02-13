@@ -12,7 +12,7 @@ const generate = async (req, res) => {
     res.json(blueprint);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "AI generation failed" });
+    res.status(500).json({ message: error.message || "AI generation failed" });
   }
 };
 
