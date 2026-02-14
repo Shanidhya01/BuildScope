@@ -16,7 +16,7 @@ export default function Signup() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleSignup = async (e) => {
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
@@ -35,7 +35,7 @@ export default function Signup() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       router.push("/projects");
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message.replace("Firebase: ", ""));
     } finally {
       setLoading(false);
@@ -49,7 +49,7 @@ export default function Signup() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push("/projects");
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message.replace("Firebase: ", ""));
     } finally {
       setLoading(false);

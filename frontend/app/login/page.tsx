@@ -16,7 +16,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
@@ -24,7 +24,7 @@ export default function Login() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/projects");
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message.replace("Firebase: ", ""));
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ export default function Login() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push("/projects");
-    } catch (error) {
+    } catch (error: any) {
       setError(error.message.replace("Firebase: ", ""));
     } finally {
       setLoading(false);

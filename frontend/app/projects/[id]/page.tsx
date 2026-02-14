@@ -26,7 +26,7 @@ import {
 export default function ProjectDetail() {
   const params = useParams();
   const router = useRouter();
-  const [project, setProject] = useState(null);
+  const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
@@ -74,6 +74,7 @@ export default function ProjectDetail() {
   };
 
   const handleCopyText = async () => {
+    if (!project) return;
     try {
       const blueprint = project.blueprint || {};
       const textContent = formatBlueprintAsText(blueprint);
@@ -138,7 +139,7 @@ export default function ProjectDetail() {
     }
   };
 
-  const formatBlueprintAsText = (blueprint) => {
+  const formatBlueprintAsText = (blueprint: any) => {
     let text = `Project: ${project.idea}\n`;
     text += `Created: ${new Date(project.createdAt).toLocaleDateString()}\n\n`;
     text += "=" .repeat(60) + "\n\n";
@@ -152,7 +153,7 @@ export default function ProjectDetail() {
     return text;
   };
 
-  const formatValue = (value, indent = 0) => {
+  const formatValue = (value: any, indent = 0): string => {
     const indentStr = "  ".repeat(indent);
     
     if (typeof value === 'string') {
@@ -174,7 +175,7 @@ export default function ProjectDetail() {
     return indentStr + String(value);
   };
 
-  const renderAPIEndpoint = (endpoint, index) => {
+  const renderAPIEndpoint = (endpoint: any, index: number) => {
     return (
       <div key={index} className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
         <div className="flex items-start gap-3 mb-3">
@@ -197,7 +198,7 @@ export default function ProjectDetail() {
     );
   };
 
-  const renderDatabaseTable = (collections) => {
+  const renderDatabaseTable = (collections: any) => {
     if (!Array.isArray(collections)) {
       return <p className="text-slate-500 italic">No collections defined</p>;
     }
@@ -284,7 +285,7 @@ export default function ProjectDetail() {
     );
   };
 
-  const renderContent = (content) => {
+  const renderContent = (content: any): React.ReactNode => {
     if (!content) return <p className="text-slate-500 italic">No content available</p>;
 
     if (typeof content === 'string') {
@@ -332,7 +333,7 @@ export default function ProjectDetail() {
     return <p className="text-slate-700">{String(content)}</p>;
   };
 
-  const renderSection = (title, content, icon) => {
+  const renderSection = (title: string, content: any, icon: React.ReactNode) => {
     if (!content) return null;
 
     return (
@@ -673,13 +674,51 @@ export default function ProjectDetail() {
                       <h3 className="text-lg font-semibold text-slate-800">API Endpoints</h3>
                     </div>
                     
-                    <div className="space-y-3">
-                      {blueprint.apis && Array.isArray(blueprint.apis) ? (
-                        blueprint.apis.map((endpoint, index) => renderAPIEndpoint(endpoint, index))
-                      ) : (
-                        <p className="text-slate-500 italic">No API specifications available</p>
-                      )}
-                    </div>
+                    {blueprint.apis && Array.isArray(blueprint.apis) ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200 w-24">
+                                Method
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                                Path
+                              </th>
+                              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                                Description
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {blueprint.apis.map((endpoint: any, index: number) => (
+                              <tr key={index} className="hover:bg-slate-50">
+                                <td className="px-4 py-3 text-sm border border-slate-200">
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700' :
+                                    endpoint.method === 'POST' ? 'bg-green-100 text-green-700' :
+                                    endpoint.method === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
+                                    endpoint.method === 'PATCH' ? 'bg-orange-100 text-orange-700' :
+                                    endpoint.method === 'DELETE' ? 'bg-red-100 text-red-700' :
+                                    'bg-slate-100 text-slate-700'
+                                  }`}>
+                                    {endpoint.method}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm font-mono text-slate-700 border border-slate-200">
+                                  {endpoint.path}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-slate-600 border border-slate-200">
+                                  {endpoint.description}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 italic">No API specifications available</p>
+                    )}
                   </div>
                 </div>
               )}

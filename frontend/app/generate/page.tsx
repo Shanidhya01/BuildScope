@@ -9,7 +9,7 @@ export default function Generate() {
   const router = useRouter();
   const [idea, setIdea] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [savingProject, setSavingProject] = useState(false);
@@ -17,7 +17,7 @@ export default function Generate() {
   const [savedProjectId, setSavedProjectId] = useState("");
   const [saveError, setSaveError] = useState("");
 
-  const saveGeneratedProject = async (generatedBlueprint, generatedIdea) => {
+  const saveGeneratedProject = async (generatedBlueprint: any, generatedIdea: string) => {
     if (!generatedBlueprint || !generatedIdea?.trim()) return null;
 
     setSavingProject(true);
@@ -84,7 +84,7 @@ export default function Generate() {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       handleGenerate();
     }
@@ -97,7 +97,7 @@ export default function Generate() {
     "A recipe sharing platform with ingredient substitution suggestions"
   ];
 
-  const renderSection = (title, content, icon) => {
+  const renderSection = (title: string, content: any, icon: React.ReactNode) => {
     if (!content) return null;
 
     return (

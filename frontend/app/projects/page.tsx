@@ -6,7 +6,7 @@ import Link from "next/link";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function Projects() {
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,7 +33,7 @@ export default function Projects() {
     fetchProjects();
   }, []);
 
-  const handleDelete = async (projectId, e) => {
+  const handleDelete = async (projectId: string, e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -56,9 +56,9 @@ export default function Projects() {
     )
     .sort((a, b) => {
       if (sortBy === "recent") {
-        return new Date(b.createdAt) - new Date(a.createdAt);
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       } else if (sortBy === "oldest") {
-        return new Date(a.createdAt) - new Date(b.createdAt);
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       }
       return 0;
     });
