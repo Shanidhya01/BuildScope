@@ -5,6 +5,23 @@ import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Link from "next/link";
+import { 
+  FileText, 
+  Sparkles, 
+  Building2, 
+  Database, 
+  Plug, 
+  Calendar,
+  ArrowLeft,
+  Copy,
+  Download,
+  FileDown,
+  Trash2,
+  CheckCircle2,
+  Loader2,
+  Table as TableIcon,
+  List
+} from "lucide-react";
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -14,6 +31,8 @@ export default function ProjectDetail() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [databaseViewMode, setDatabaseViewMode] = useState("table"); // 'table' or 'text'
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -54,9 +73,11 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleCopyJSON = async () => {
+  const handleCopyText = async () => {
     try {
-      await navigator.clipboard.writeText(JSON.stringify(project.blueprint, null, 2));
+      const blueprint = project.blueprint || {};
+      const textContent = formatBlueprintAsText(blueprint);
+      await navigator.clipboard.writeText(textContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -64,15 +85,251 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleExportJSON = () => {
-    const dataStr = JSON.stringify(project.blueprint, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const exportFileDefaultName = `${project.idea.substring(0, 30)}-blueprint.json`;
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    try {
+      const response = await api.get(`/export/${params.id}?format=pdf`, {
+        headers: {
+          Authorization: "Bearer testtoken",
+        },
+        responseType: 'blob',
+      });
 
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.idea.substring(0, 30)}-blueprint.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadMarkdown = async () => {
+    setDownloading(true);
+    try {
+      const response = await api.get(`/export/${params.id}?format=md`, {
+        headers: {
+          Authorization: "Bearer testtoken",
+        },
+      });
+
+      const blob = new Blob([response.data], { type: 'text/markdown' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.idea.substring(0, 30)}-blueprint.md`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download Markdown. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const formatBlueprintAsText = (blueprint) => {
+    let text = `Project: ${project.idea}\n`;
+    text += `Created: ${new Date(project.createdAt).toLocaleDateString()}\n\n`;
+    text += "=" .repeat(60) + "\n\n";
+
+    Object.entries(blueprint).forEach(([key, value]) => {
+      text += `${key.toUpperCase()}\n`;
+      text += "-".repeat(60) + "\n";
+      text += formatValue(value) + "\n\n";
+    });
+
+    return text;
+  };
+
+  const formatValue = (value, indent = 0) => {
+    const indentStr = "  ".repeat(indent);
+    
+    if (typeof value === 'string') {
+      return indentStr + value;
+    } else if (Array.isArray(value)) {
+      return value.map((item, i) => {
+        if (typeof item === 'string') {
+          return `${indentStr}${i + 1}. ${item}`;
+        } else if (typeof item === 'object') {
+          return `${indentStr}${i + 1}. ${formatValue(item, indent + 1)}`;
+        }
+        return `${indentStr}${i + 1}. ${String(item)}`;
+      }).join('\n');
+    } else if (typeof value === 'object' && value !== null) {
+      return Object.entries(value).map(([k, v]) => {
+        return `${indentStr}${k}: ${formatValue(v, indent + 1)}`;
+      }).join('\n');
+    }
+    return indentStr + String(value);
+  };
+
+  const renderAPIEndpoint = (endpoint, index) => {
+    return (
+      <div key={index} className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start gap-3 mb-3">
+          <span className={`px-3 py-1 rounded-md text-xs font-bold ${
+            endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700' :
+            endpoint.method === 'POST' ? 'bg-green-100 text-green-700' :
+            endpoint.method === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
+            endpoint.method === 'PATCH' ? 'bg-orange-100 text-orange-700' :
+            endpoint.method === 'DELETE' ? 'bg-red-100 text-red-700' :
+            'bg-slate-100 text-slate-700'
+          }`}>
+            {endpoint.method}
+          </span>
+          <code className="flex-1 font-mono text-sm text-slate-700 bg-slate-50 px-3 py-1 rounded">
+            {endpoint.path}
+          </code>
+        </div>
+        <p className="text-slate-600 text-sm ml-16">{endpoint.description}</p>
+      </div>
+    );
+  };
+
+  const renderDatabaseTable = (collections) => {
+    if (!Array.isArray(collections)) {
+      return <p className="text-slate-500 italic">No collections defined</p>;
+    }
+
+    const isObjectSchema = collections.some(
+      (collection) => typeof collection === "object" && collection !== null
+    );
+
+    if (isObjectSchema) {
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                  #
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                  Collection Name
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                  Fields
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {collections.map((collection, index) => {
+                const name =
+                  typeof collection === "object" && collection !== null
+                    ? collection.name || `collection_${index + 1}`
+                    : String(collection);
+                const fields =
+                  typeof collection === "object" && collection !== null && Array.isArray(collection.fields)
+                    ? collection.fields
+                    : [];
+
+                return (
+                  <tr key={index} className="hover:bg-slate-50 align-top">
+                    <td className="px-4 py-3 text-sm text-slate-600 border border-slate-200">
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-slate-700 border border-slate-200">
+                      {name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700 border border-slate-200">
+                      {fields.length > 0 ? fields.join(", ") : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-slate-100">
+              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                #
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 border border-slate-200">
+                Collection Name
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {collections.map((collection, index) => (
+              <tr key={index} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-sm text-slate-600 border border-slate-200">
+                  {index + 1}
+                </td>
+                <td className="px-4 py-3 text-sm font-mono text-slate-700 border border-slate-200">
+                  {collection}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const renderContent = (content) => {
+    if (!content) return <p className="text-slate-500 italic">No content available</p>;
+
+    if (typeof content === 'string') {
+      return (
+        <div className="prose prose-slate max-w-none">
+          <p className="whitespace-pre-wrap leading-relaxed text-slate-700">{content}</p>
+        </div>
+      );
+    }
+
+    if (Array.isArray(content)) {
+      return (
+        <ul className="space-y-3">
+          {content.map((item, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold mt-0.5">
+                {index + 1}
+              </span>
+              <span className="flex-1 text-slate-700 leading-relaxed">
+                {typeof item === 'string' ? item : renderContent(item)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (typeof content === 'object') {
+      return (
+        <div className="space-y-4">
+          {Object.entries(content).map(([key, value], index) => (
+            <div key={index} className="border-l-4 border-blue-400 pl-4 py-2 bg-slate-50 rounded-r">
+              <h4 className="font-semibold text-slate-800 mb-2 capitalize">
+                {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+              </h4>
+              <div className="text-slate-700">
+                {renderContent(value)}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return <p className="text-slate-700">{String(content)}</p>;
   };
 
   const renderSection = (title, content, icon) => {
@@ -80,31 +337,14 @@ export default function ProjectDetail() {
 
     return (
       <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
             {icon}
           </div>
           <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
         </div>
-        <div className="text-slate-700 space-y-3">
-          {typeof content === 'string' ? (
-            <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
-          ) : Array.isArray(content) ? (
-            <ul className="space-y-2">
-              {content.map((item, index) => (
-                <li key={index} className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <pre className="bg-slate-50 p-4 rounded-lg overflow-x-auto text-sm border border-slate-200">
-              {JSON.stringify(content, null, 2)}
-            </pre>
-          )}
+        <div className="text-slate-700">
+          {renderContent(content)}
         </div>
       </div>
     );
@@ -117,10 +357,8 @@ export default function ProjectDetail() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl mb-4 animate-pulse">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl mb-4">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
                 </div>
                 <p className="text-slate-600 font-medium">Loading project details...</p>
               </div>
@@ -138,9 +376,7 @@ export default function ProjectDetail() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-2xl shadow-xl p-12 text-center border border-slate-200">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
-                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <FileText className="w-8 h-8 text-red-600" />
               </div>
               <h2 className="text-2xl font-bold text-slate-900 mb-2">Project Not Found</h2>
               <p className="text-slate-600 mb-6">{error}</p>
@@ -148,9 +384,7 @@ export default function ProjectDetail() {
                 href="/projects"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-xl hover:from-blue-700 hover:to-cyan-600 transition-all font-semibold"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <ArrowLeft className="w-5 h-5" />
                 Back to Projects
               </Link>
             </div>
@@ -172,9 +406,7 @@ export default function ProjectDetail() {
               href="/projects"
               className="inline-flex items-center text-sm text-slate-600 hover:text-blue-600 transition-colors"
             >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
+              <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Projects
             </Link>
           </div>
@@ -185,9 +417,7 @@ export default function ProjectDetail() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                    <FileText className="w-7 h-7 text-white" />
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold text-slate-900">{project.idea}</h1>
@@ -195,9 +425,7 @@ export default function ProjectDetail() {
                 </div>
                 <div className="flex items-center gap-6 text-sm text-slate-600">
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                    <Calendar className="w-4 h-4" />
                     Created {new Date(project.createdAt).toLocaleDateString('en-US', { 
                       year: 'numeric', 
                       month: 'long', 
@@ -205,9 +433,7 @@ export default function ProjectDetail() {
                     })}
                   </div>
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <Calendar className="w-4 h-4" />
                     {new Date(project.createdAt).toLocaleTimeString('en-US', { 
                       hour: '2-digit', 
                       minute: '2-digit' 
@@ -219,29 +445,41 @@ export default function ProjectDetail() {
               {/* Action Buttons */}
               <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                 <button
-                  onClick={handleCopyJSON}
+                  onClick={handleCopyText}
                   className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors group relative"
-                  title="Copy JSON"
+                  title="Copy as Text"
                 >
                   {copied ? (
-                    <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
+                    <Copy className="w-5 h-5" />
                   )}
                 </button>
 
                 <button
-                  onClick={handleExportJSON}
-                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                  title="Export as JSON"
+                  onClick={handleDownloadPDF}
+                  disabled={downloading}
+                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors disabled:opacity-50"
+                  title="Download as PDF"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
+                  {downloading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <FileDown className="w-5 h-5" />
+                  )}
+                </button>
+
+                <button
+                  onClick={handleDownloadMarkdown}
+                  disabled={downloading}
+                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors disabled:opacity-50"
+                  title="Download as Markdown"
+                >
+                  {downloading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
                 </button>
 
                 <button
@@ -249,9 +487,7 @@ export default function ProjectDetail() {
                   className="p-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
                   title="Delete project"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -260,7 +496,7 @@ export default function ProjectDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t border-slate-200">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {blueprint.features?.length || Object.keys(blueprint).length}
+                  {Object.keys(blueprint).length}
                 </div>
                 <div className="text-sm text-slate-600">Sections</div>
               </div>
@@ -278,7 +514,7 @@ export default function ProjectDetail() {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {blueprint.api ? '✓' : '—'}
+                  {blueprint.apis ? '✓' : '—'}
                 </div>
                 <div className="text-sm text-slate-600">API Specs</div>
               </div>
@@ -289,24 +525,23 @@ export default function ProjectDetail() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
             <div className="flex border-b border-slate-200 overflow-x-auto">
               {[
-                { id: "overview", label: "Overview", icon: "📋" },
-                { id: "features", label: "Features", icon: "✨" },
-                { id: "architecture", label: "Architecture", icon: "🏗️" },
-                { id: "database", label: "Database", icon: "💾" },
-                { id: "api", label: "API", icon: "🔌" },
-                { id: "timeline", label: "Timeline", icon: "📅" },
-                { id: "raw", label: "Raw JSON", icon: "📄" },
+                { id: "overview", label: "Overview", icon: <FileText className="w-4 h-4" /> },
+                { id: "features", label: "Features", icon: <Sparkles className="w-4 h-4" /> },
+                { id: "architecture", label: "Architecture", icon: <Building2 className="w-4 h-4" /> },
+                { id: "database", label: "Database", icon: <Database className="w-4 h-4" /> },
+                { id: "api", label: "API", icon: <Plug className="w-4 h-4" /> },
+                { id: "timeline", label: "Timeline", icon: <Calendar className="w-4 h-4" /> },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap ${
+                  className={`px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-2 ${
                     activeTab === tab.id
                       ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  <span className="mr-2">{tab.icon}</span>
+                  {tab.icon}
                   {tab.label}
                 </button>
               ))}
@@ -316,13 +551,44 @@ export default function ProjectDetail() {
             <div className="p-6">
               {activeTab === "overview" && (
                 <div className="space-y-6">
-                  {renderSection(
-                    "Project Overview",
-                    blueprint.overview || blueprint.description || "No overview available",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  )}
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-white" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-800">Project Overview</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-semibold text-slate-800 mb-3">Project Idea</h4>
+                        <p className="text-slate-700 leading-relaxed">{project.idea}</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                        <div>
+                          <p className="text-sm text-slate-600 mb-1">Created</p>
+                          <p className="text-slate-900 font-medium">
+                            {new Date(project.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-600 mb-1">Total Sections</p>
+                          <p className="text-slate-900 font-medium">{Object.keys(blueprint).length}</p>
+                        </div>
+                      </div>
+                      {blueprint.description && (
+                        <div className="pt-4 border-t border-slate-200">
+                          <h4 className="font-semibold text-slate-800 mb-3">Description</h4>
+                          <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{blueprint.description}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -331,9 +597,7 @@ export default function ProjectDetail() {
                   {renderSection(
                     "Core Features",
                     blueprint.features || "No features defined",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                    </svg>
+                    <Sparkles className="w-5 h-5 text-white" />
                   )}
                 </div>
               )}
@@ -341,36 +605,82 @@ export default function ProjectDetail() {
               {activeTab === "architecture" && (
                 <div className="space-y-6">
                   {renderSection(
-                    "System Architecture",
-                    blueprint.architecture || "No architecture details available",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
+                    "Technology Stack",
+                    blueprint.techStack || blueprint.techstack || blueprint.architecture || "No architecture details available",
+                    <Building2 className="w-5 h-5 text-white" />
                   )}
                 </div>
               )}
 
               {activeTab === "database" && (
                 <div className="space-y-6">
-                  {renderSection(
-                    "Database Schema",
-                    blueprint.database || blueprint.schema || "No database schema available",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                    </svg>
-                  )}
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
+                          <Database className="w-5 h-5 text-white" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-800">Database Schema</h3>
+                      </div>
+                      
+                      {/* View Mode Toggle */}
+                      <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setDatabaseViewMode('table')}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                            databaseViewMode === 'table'
+                              ? 'bg-white text-slate-900 shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <TableIcon className="w-4 h-4" />
+                          Table
+                        </button>
+                        <button
+                          onClick={() => setDatabaseViewMode('text')}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                            databaseViewMode === 'text'
+                              ? 'bg-white text-slate-900 shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <List className="w-4 h-4" />
+                          List
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-slate-700">
+                      {databaseViewMode === 'table' ? (
+                        renderDatabaseTable(blueprint.database?.collections || blueprint.database)
+                      ) : (
+                        <pre className="text-xs text-slate-700 overflow-auto max-h-96 bg-slate-50 p-4 rounded border border-slate-200">
+                          {JSON.stringify(blueprint.database || { collections: [] }, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {activeTab === "api" && (
                 <div className="space-y-6">
-                  {renderSection(
-                    "API Endpoints",
-                    blueprint.api || blueprint.endpoints || "No API specifications available",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  )}
+                  <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center">
+                        <Plug className="w-5 h-5 text-white" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-800">API Endpoints</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {blueprint.apis && Array.isArray(blueprint.apis) ? (
+                        blueprint.apis.map((endpoint, index) => renderAPIEndpoint(endpoint, index))
+                      ) : (
+                        <p className="text-slate-500 italic">No API specifications available</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -378,42 +688,9 @@ export default function ProjectDetail() {
                 <div className="space-y-6">
                   {renderSection(
                     "Development Timeline",
-                    blueprint.timeline || blueprint.milestones || "No timeline available",
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+                    blueprint.timeline || "No timeline available",
+                    <Calendar className="w-5 h-5 text-white" />
                   )}
-                </div>
-              )}
-
-              {activeTab === "raw" && (
-                <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">Complete Blueprint (JSON)</h3>
-                    <button
-                      onClick={handleCopyJSON}
-                      className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-slate-300"
-                    >
-                      {copied ? (
-                        <>
-                          <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <pre className="text-sm text-slate-700 overflow-auto max-h-[600px] bg-white p-6 rounded-lg border border-slate-200 font-mono">
-                    {JSON.stringify(blueprint, null, 2)}
-                  </pre>
                 </div>
               )}
             </div>

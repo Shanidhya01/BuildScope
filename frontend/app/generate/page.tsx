@@ -1,15 +1,52 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function Generate() {
+  const router = useRouter();
   const [idea, setIdea] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+  const [savingProject, setSavingProject] = useState(false);
+  const [projectSaved, setProjectSaved] = useState(false);
+  const [savedProjectId, setSavedProjectId] = useState("");
+  const [saveError, setSaveError] = useState("");
+
+  const saveGeneratedProject = async (generatedBlueprint, generatedIdea) => {
+    if (!generatedBlueprint || !generatedIdea?.trim()) return null;
+
+    setSavingProject(true);
+    setSaveError("");
+
+    try {
+      const savedResponse = await api.post("/projects", {
+        idea: generatedIdea.trim(),
+        blueprint: generatedBlueprint
+      });
+
+      setProjectSaved(true);
+      setSavedProjectId(savedResponse?.data?._id || "");
+      return savedResponse.data;
+    } catch (saveErr: any) {
+      const saveMessage =
+        saveErr?.response?.data?.message ||
+        (typeof saveErr?.response?.data === "string" ? saveErr.response.data : "") ||
+        saveErr?.message ||
+        "Blueprint generated, but failed to auto-save to Projects.";
+
+      setProjectSaved(false);
+      setSavedProjectId("");
+      setSaveError(saveMessage);
+      return null;
+    } finally {
+      setSavingProject(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!idea.trim()) {
@@ -20,12 +57,20 @@ export default function Generate() {
     setLoading(true);
     setError("");
     setResult(null);
+    setProjectSaved(false);
+    setSavedProjectId("");
+    setSaveError("");
 
     try {
       const response = await api.post("/ai/generate", {
         idea
       });
       setResult(response.data);
+      const savedProject = await saveGeneratedProject(response.data, idea);
+
+      if (savedProject?._id) {
+        router.push(`/projects/${savedProject._id}`);
+      }
     } catch (err: any) {
       const message =
         err?.response?.data?.message ||
@@ -189,7 +234,11 @@ export default function Generate() {
                   <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  Blueprint generated successfully
+                  {savingProject
+                    ? "Blueprint generated. Auto-saving to Projects..."
+                    : projectSaved
+                      ? "Blueprint generated and saved to Projects"
+                      : "Blueprint generated successfully"}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -204,18 +253,29 @@ export default function Generate() {
                     Copy JSON
                   </button>
                   <button
-                    onClick={() => {
-                      // Save to projects functionality
-                    }}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30"
+                    onClick={() => saveGeneratedProject(result, idea)}
+                    disabled={savingProject || projectSaved}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                     </svg>
-                    Save to Projects
+                    {savingProject ? "Saving..." : projectSaved ? "Saved to Projects" : "Save to Projects"}
                   </button>
                 </div>
               </div>
+
+              {saveError && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 text-sm">
+                  {saveError}
+                </div>
+              )}
+
+              {projectSaved && savedProjectId && (
+                <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm">
+                  Auto-saved to Projects successfully.
+                </div>
+              )}
 
               {/* Tabs Navigation */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
