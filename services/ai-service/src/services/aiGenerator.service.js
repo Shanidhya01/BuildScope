@@ -22,7 +22,7 @@ const extractJsonPayload = (rawText) => {
 
 const generateBlueprint = async (idea) => {
   try {
-    console.log("🟢 Starting OpenRouter call...");
+    console.log("Starting OpenRouter call...");
 
     const prompt = buildPrompt(idea);
 
@@ -46,12 +46,12 @@ const generateBlueprint = async (idea) => {
       })
     });
 
-    console.log("🟢 OpenRouter responded:", response.status);
+    console.log("OpenRouter responded:", response.status);
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("🔴 OpenRouter Error:", data);
+      console.error("OpenRouter Error:", data);
       throw new Error("OpenRouter API error");
     }
 
@@ -67,16 +67,16 @@ const generateBlueprint = async (idea) => {
       throw new Error("Empty response from OpenRouter");
     }
 
-    console.log("🟢 Parsing blueprint JSON");
+    console.log("Parsing blueprint JSON");
 
     const parsed = extractJsonPayload(text);
 
-    console.log("🟢 Blueprint generated successfully");
+    console.log("Blueprint generated successfully");
 
     return parsed;
 
   } catch (error) {
-    console.error("🔴 AI Generation Failed:", error.message);
+    console.error("AI Generation Failed:", error.message);
     throw new Error(error.message || "AI generation failed");
   }
 };

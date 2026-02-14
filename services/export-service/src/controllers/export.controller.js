@@ -9,7 +9,7 @@ const exportProject = async (req, res) => {
     const userId = req.headers["x-user-id"];
 
     const response = await axios.get(
-      `http://projects:4003/projects/${projectId}`,
+      `${process.env.PROJECTS_SERVICE_URL}/projects/${projectId}`,
       {
         headers: {
           Authorization: req.headers.authorization,
