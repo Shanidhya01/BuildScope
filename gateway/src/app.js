@@ -15,6 +15,13 @@ app.use(
   })
 );
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "BuildScope Gateway is running",
+    status: "OK"
+  });
+});
+
 //health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({

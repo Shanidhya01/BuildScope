@@ -4,6 +4,13 @@ const authRoutes = require("./routes/auth.routes");
 const app = express();
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "BuildScope Auth Service is running",
+    status: "OK"
+  });
+});
+
 app.get("/health", (req, res) => {
   res.json({
     service: "auth-service",
